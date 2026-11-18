@@ -1,5 +1,5 @@
 "Epic","Feature","Story","FAILED","BROKEN","PASSED","SKIPPED","UNKNOWN"
-"","SauceDemo Login","Unsuccessful login with invalid credentials","0","0","4","0","0"
 "","JSONPlaceholder Users API","Validate user details for ID 2","0","0","1","0","0"
-"","SauceDemo Login","Login attempt with a locked-out user","0","0","1","0","0"
+"","SauceDemo Login","Unsuccessful login with invalid credentials","0","0","4","0","0"
 "","SauceDemo Login","Successful login with valid credentials","0","0","1","0","0"
+"","SauceDemo Login","Login attempt with a locked-out user","0","0","1","0","0"

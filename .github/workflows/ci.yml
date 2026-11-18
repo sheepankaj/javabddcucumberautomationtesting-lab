@@ -7,8 +7,17 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Fix 1: grant the GITHUB_TOKEN enough rights to push to gh-pages
+# Also needed for GHCR (packages) and artifact management (actions).
+# Note: the repo must also have "Read and write permissions" enabled under
+# Settings → Actions → General → Workflow permissions.
+permissions:
+  contents: write
+  packages: write
+  actions: read
+
 jobs:
-  # ── Chrome UI + API Tests ─────────────────────────────────────────────────
+  # ── Chrome UI + API Tests ───────────────────────────────────────────────────
   chrome-tests:
     name: Chrome + API Tests
     runs-on: ubuntu-latest
@@ -55,7 +64,7 @@ jobs:
           path: target/cucumber-reports/
           retention-days: 7
 
-  # ── Firefox UI Tests ──────────────────────────────────────────────────────
+  # ── Firefox UI Tests ────────────────────────────────────────────────────────
   firefox-tests:
     name: Firefox Tests
     runs-on: ubuntu-latest
@@ -102,7 +111,29 @@ jobs:
           path: target/cucumber-reports/
           retention-days: 7
 
-  # ── Allure Report (merge Chrome + Firefox, deploy to GitHub Pages) ────────
+  # ── Docker Build ─────────────────────────────────────────────────────────────
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: automation-tests:${{ github.sha }}
+          # Layer caching keeps subsequent builds fast
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ── Allure Report (merge Chrome + Firefox → GitHub Pages) ──────────────────
   allure-report:
     name: Allure Report
     runs-on: ubuntu-latest
@@ -113,19 +144,36 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Fix 2: download each browser's results into its OWN directory so their
+      # environment.properties, history/ files, and JSON results don't overwrite
+      # each other. We merge them manually before calling allure generate.
       - name: Download Chrome allure results
         uses: actions/download-artifact@v4
         with:
           name: allure-results-chrome
-          path: target/allure-results
+          path: target/allure-results/chrome
         continue-on-error: true
 
       - name: Download Firefox allure results
         uses: actions/download-artifact@v4
         with:
           name: allure-results-firefox
-          path: target/allure-results
+          path: target/allure-results/firefox
         continue-on-error: true
+
+      - name: Merge results into a single directory
+        run: |
+          mkdir -p target/allure-results/merged
+          # Copy Chrome results first (includes environment.properties, history/)
+          if [ -d target/allure-results/chrome ]; then
+            cp -r target/allure-results/chrome/. target/allure-results/merged/
+          fi
+          # Copy Firefox results on top — UUID-named JSON files are unique so
+          # there is no collision; only environment.properties is overwritten
+          # (last writer wins, which is acceptable).
+          if [ -d target/allure-results/firefox ]; then
+            cp -r target/allure-results/firefox/. target/allure-results/merged/
+          fi
 
       - name: Install Allure CLI 2.24.0
         run: |
@@ -135,17 +183,20 @@ jobs:
 
       - name: Restore Allure history (for TREND)
         run: |
-          if [ -d allure-history ]; then
-            cp -r allure-history/. target/allure-results/history/ 2>/dev/null || true
+          if [ -d allure-history ] && [ "$(ls -A allure-history)" ]; then
+            mkdir -p target/allure-results/merged/history
+            cp -r allure-history/. target/allure-results/merged/history/
           fi
 
       - name: Generate Allure report
-        run: allure generate target/allure-results --clean -o target/allure-report
+        run: allure generate target/allure-results/merged --clean -o target/allure-report
 
       - name: Save Allure history
         run: |
           mkdir -p allure-history
-          cp -r target/allure-report/history/. allure-history/ 2>/dev/null || true
+          if [ -d target/allure-report/history ]; then
+            cp -r target/allure-report/history/. allure-history/
+          fi
 
       - name: Upload Allure report artifact
         uses: actions/upload-artifact@v4

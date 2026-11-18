@@ -1,0 +1,11 @@
+target/
+.idea/
+.allure/
+.selenium/
+allure-history/
+*.log
+.git/
+.github/
+.claude/
+.DS_Store
+Thumbs.db

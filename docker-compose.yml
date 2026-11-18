@@ -1,0 +1,70 @@
+version: '3.8'
+
+# ── Run all tests headless inside a container ─────────────────────────────
+# Usage:
+#   docker compose up --build           # run all tests (Chrome + Firefox + API)
+#   docker compose up --build chrome    # Chrome + API only
+#   docker compose up --build firefox   # Firefox only
+#   docker compose down                 # clean up
+
+services:
+
+  # All tests: ChromeTests + FirefoxTests + APITests in parallel forks
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bdd-automation-tests
+    volumes:
+      - ./target:/app/target               # test results, Cucumber reports
+      - ./allure-history:/app/allure-history  # TREND history survives container restarts
+    environment:
+      - headless=true
+    command:
+      - mvn
+      - clean
+      - test
+      - -Dheadless=true
+      - -Dallure.results.directory=target/allure-results
+
+  # Chrome UI + API only
+  chrome:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bdd-chrome-tests
+    volumes:
+      - ./target:/app/target
+      - ./allure-history:/app/allure-history
+    environment:
+      - headless=true
+    command:
+      - mvn
+      - clean
+      - test
+      - -Dtest=ChromeTests,APITests
+      - -Dheadless=true
+      - -Dbrowser=chrome
+      - -Dallure.results.directory=target/allure-results
+    profiles: [chrome]
+
+  # Firefox UI only
+  firefox:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bdd-firefox-tests
+    volumes:
+      - ./target:/app/target
+      - ./allure-history:/app/allure-history
+    environment:
+      - headless=true
+    command:
+      - mvn
+      - clean
+      - test
+      - -Dtest=FirefoxTests
+      - -Dheadless=true
+      - -Dbrowser=firefox
+      - -Dallure.results.directory=target/allure-results
+    profiles: [firefox]

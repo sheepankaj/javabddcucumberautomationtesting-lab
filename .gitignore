@@ -1,0 +1,32 @@
+# ── Maven ──────────────────────────────────────────────────────────────────
+target/
+
+# ── IDE ─────────────────────────────────────────────────────────────────────
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# ── OS ──────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# ── Allure ──────────────────────────────────────────────────────────────────
+# Allure CLI downloaded by allure-maven plugin — large binary, not source
+.allure/
+
+# ── Selenium Manager driver cache ───────────────────────────────────────────
+# (stored in ~/.cache/selenium, but guard against accidental project-level copy)
+.selenium/
+
+# ── Logs ────────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Claude Code ─────────────────────────────────────────────────────────────
+.claude/settings.local.json
+
+# ── Playwright MCP snapshots (created during screenshot sessions) ────────────
+.playwright-mcp/

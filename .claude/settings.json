@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mvn *)",
+      "Bash(find *)",
+      "Bash(ls *)",
+      "Bash(mkdir *)",
+      "Bash(rm *)",
+      "Bash(cp *)",
+      "Bash(cat *)",
+      "Bash(docker *)"
+    ],
+    "deny": [
+      "Bash(git push *)",
+      "Bash(rm -rf /)"
+    ]
+  }
+}

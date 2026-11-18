@@ -144,9 +144,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Fix 2: download each browser's results into its OWN directory so their
-      # environment.properties, history/ files, and JSON results don't overwrite
-      # each other. We merge them manually before calling allure generate.
+      # Download each browser's results into its own directory.
+      # We pass both directories to `allure generate` directly — Allure CLI
+      # natively supports multiple input paths and merges them itself.
+      # This avoids any cp-based file conflicts (environment.properties, etc.).
       - name: Download Chrome allure results
         uses: actions/download-artifact@v4
         with:
@@ -161,20 +162,6 @@ jobs:
           path: target/allure-results/firefox
         continue-on-error: true
 
-      - name: Merge results into a single directory
-        run: |
-          mkdir -p target/allure-results/merged
-          # Copy Chrome results first (includes environment.properties, history/)
-          if [ -d target/allure-results/chrome ]; then
-            cp -r target/allure-results/chrome/. target/allure-results/merged/
-          fi
-          # Copy Firefox results on top — UUID-named JSON files are unique so
-          # there is no collision; only environment.properties is overwritten
-          # (last writer wins, which is acceptable).
-          if [ -d target/allure-results/firefox ]; then
-            cp -r target/allure-results/firefox/. target/allure-results/merged/
-          fi
-
       - name: Install Allure CLI 2.24.0
         run: |
           wget -q https://github.com/allure-framework/allure2/releases/download/2.24.0/allure-2.24.0.tgz
@@ -183,13 +170,20 @@ jobs:
 
       - name: Restore Allure history (for TREND)
         run: |
+          # History goes into the Chrome dir (first input); Allure reads it from there.
           if [ -d allure-history ] && [ "$(ls -A allure-history)" ]; then
-            mkdir -p target/allure-results/merged/history
-            cp -r allure-history/. target/allure-results/merged/history/
+            mkdir -p target/allure-results/chrome/history
+            cp -r allure-history/. target/allure-results/chrome/history/
           fi
 
-      - name: Generate Allure report
-        run: allure generate target/allure-results/merged --clean -o target/allure-report
+      - name: Generate Allure report (Chrome + Firefox combined)
+        run: |
+          # Build the list of directories that actually exist and have content
+          DIRS=""
+          [ -d target/allure-results/chrome ]  && [ "$(ls -A target/allure-results/chrome)" ]  && DIRS="$DIRS target/allure-results/chrome"
+          [ -d target/allure-results/firefox ] && [ "$(ls -A target/allure-results/firefox)" ] && DIRS="$DIRS target/allure-results/firefox"
+          echo "Generating Allure report from:$DIRS"
+          allure generate $DIRS --clean -o target/allure-report
 
       - name: Save Allure history
         run: |

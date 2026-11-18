@@ -1,5 +1,7 @@
 # ── Stage 1: dependency cache ────────────────────────────────────────────────
-FROM eclipse-temurin:11-jdk-jammy AS deps
+# focal = Ubuntu 20.04: Firefox is a real apt binary here, not a snap wrapper.
+# jammy (22.04) moved Firefox to snap which cannot run inside Docker containers.
+FROM eclipse-temurin:11-jdk-focal AS deps
 WORKDIR /app
 COPY pom.xml .
 RUN apt-get update && apt-get install -y maven --no-install-recommends \
@@ -7,7 +9,7 @@ RUN apt-get update && apt-get install -y maven --no-install-recommends \
     && mvn dependency:go-offline -q
 
 # ── Stage 2: test runner ─────────────────────────────────────────────────────
-FROM eclipse-temurin:11-jdk-jammy AS runner
+FROM eclipse-temurin:11-jdk-focal AS runner
 
 # Install Maven
 RUN apt-get update && apt-get install -y maven --no-install-recommends \
@@ -23,25 +25,18 @@ RUN apt-get update && apt-get install -y wget gnupg2 apt-transport-https --no-in
     && apt-get update && apt-get install -y google-chrome-stable --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Firefox ESR
-RUN apt-get update && apt-get install -y firefox-esr --no-install-recommends \
+# Install Firefox (native apt binary on Ubuntu 20.04)
+RUN apt-get update && apt-get install -y firefox --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy cached Maven dependencies from stage 1
 COPY --from=deps /root/.m2 /root/.m2
-
-# Copy project sources
 COPY pom.xml .
 COPY src/ src/
 
-# Create allure-history directory (populated at runtime via volume mount)
 RUN mkdir -p allure-history
 
-# Tests must run headless inside the container.
-# --no-sandbox and --disable-dev-shm-usage are added automatically by
-# DriverManager when headless=true (see config.properties or -Dheadless=true).
 ENV headless=true
 
 CMD ["mvn", "clean", "test", \
